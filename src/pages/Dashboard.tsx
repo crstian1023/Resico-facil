@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
-  DollarSign, TrendingUp, TrendingDown, FolderOpen,
+  TrendingUp, TrendingDown, FolderOpen,
   FileText, Plus, ArrowRight, AlertCircle, CheckCircle2
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
+import { supabase } from '@/integrations/supabase/client';
 
 const StatCard: React.FC<{
   title: string; value: string; subtitle?: string;
@@ -35,8 +36,36 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const displayName = user?.user_metadata?.full_name?.split(' ')[0] || 'Usuario';
-
   const currentMonth = new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  const [totalIncome, setTotalIncome] = useState<number | null>(null);
+  const [totalExpenses, setTotalExpenses] = useState<number | null>(null);
+  const [docsCompleteness, setDocsCompleteness] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const [incomeRes, expenseRes, docsRes, docTypesRes] = await Promise.all([
+        supabase.from('income_records').select('amount').eq('user_id', user.id).eq('period_year', year).eq('period_month', month).eq('status', 'active'),
+        supabase.from('expense_records').select('amount').eq('user_id', user.id).eq('period_year', year).eq('period_month', month).eq('status', 'active'),
+        supabase.from('documents').select('document_type_id').eq('user_id', user.id).eq('status', 'active'),
+        supabase.from('document_types').select('id').eq('is_required', true),
+      ]);
+      setTotalIncome((incomeRes.data ?? []).reduce((s, r) => s + Number(r.amount), 0));
+      setTotalExpenses((expenseRes.data ?? []).reduce((s, r) => s + Number(r.amount), 0));
+      const requiredIds = new Set((docTypesRes.data ?? []).map(t => t.id));
+      const uploadedIds = new Set((docsRes.data ?? []).map(d => d.document_type_id).filter(Boolean));
+      const matched = [...requiredIds].filter(id => uploadedIds.has(id)).length;
+      setDocsCompleteness(requiredIds.size > 0 ? Math.round((matched / requiredIds.size) * 100) : 0);
+    };
+    load();
+  }, [user]);
+
+  const fmt = (n: number | null) => n === null ? '...' : `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
   return (
     <AppLayout>
@@ -48,10 +77,10 @@ const Dashboard = () => {
 
         {/* Quick stats */}
         <div className="grid grid-cols-2 gap-3">
-          <StatCard title="Ingresos del mes" value="$0.00" icon={<TrendingUp size={18} />} variant="success" />
-          <StatCard title="Gastos del mes" value="$0.00" icon={<TrendingDown size={18} />} />
-          <StatCard title="Expediente" value="0%" subtitle="Completado" icon={<FolderOpen size={18} />} variant="warning" />
-          <StatCard title="Declaraciones" value="0" subtitle="Pendientes" icon={<FileText size={18} />} />
+          <StatCard title="Ingresos del mes" value={fmt(totalIncome)} icon={<TrendingUp size={18} />} variant="success" />
+          <StatCard title="Gastos del mes" value={fmt(totalExpenses)} icon={<TrendingDown size={18} className="text-red-500" />} variant="warning" />
+          <StatCard title="Expediente" value={docsCompleteness === null ? '...' : `${docsCompleteness}%`} subtitle="Completado" icon={<FolderOpen size={18} />} variant="warning" />
+          <StatCard title="Declaraciones" value="0" subtitle="Pendientes" icon={<FileText size={18} className="text-blue-500" />} />
         </div>
 
         {/* Quick actions */}
