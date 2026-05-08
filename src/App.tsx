@@ -26,7 +26,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">Cargando...</p></div>;
   if (!user) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  return (
+    <div className="flex min-h-screen">
+      <Navbar />
+      <div className="flex-1 md:ml-0">
+        {children}
+      </div>
+    </div>
+  );
 };
 
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {

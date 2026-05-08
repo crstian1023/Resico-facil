@@ -1,5 +1,4 @@
 import React from 'react';
-import AppLayout from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -19,9 +18,8 @@ const Tutorials = () => {
   const progress = Math.round((completed / topics.length) * 100);
 
   return (
-    <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold font-display">Aprende</h1>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <h1 className="text-2xl font-bold font-display">Aprende</h1>
 
         <Card>
           <CardContent className="p-4 space-y-3">
@@ -54,7 +52,7 @@ const Tutorials = () => {
           ))}
         </div>
       </div>
-    </AppLayout>
+    </div>
   );
 };
 

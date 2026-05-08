@@ -1,5 +1,4 @@
 import React from 'react';
-import AppLayout from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,9 +11,8 @@ const programs = [
 ];
 
 const SupportCredits = () => (
-  <AppLayout>
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold font-display">Apoyos y Créditos</h1>
+  <div className="max-w-4xl mx-auto space-y-6">
+    <h1 className="text-2xl font-bold font-display">Apoyos y Créditos</h1>
 
       <Card className="bg-accent/30 border-primary/20">
         <CardContent className="p-4">
@@ -55,7 +53,6 @@ const SupportCredits = () => (
         </CardContent>
       </Card>
     </div>
-  </AppLayout>
 );
 
 export default SupportCredits;

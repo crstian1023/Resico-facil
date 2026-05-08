@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import AppLayout from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,9 +41,8 @@ const Declarations = () => {
   const formatMoney = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
   return (
-    <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold font-display">Declaraciones</h1>
           <Button size="lg" onClick={() => setShowWizard(true)}>
             <FileText size={18} /> Nueva declaración
@@ -111,7 +109,7 @@ const Declarations = () => {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </div>
   );
 };
 

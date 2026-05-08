@@ -7,7 +7,6 @@ import {
   DollarSign, TrendingUp, TrendingDown, FolderOpen,
   FileText, Plus, ArrowRight, AlertCircle, CheckCircle2
 } from 'lucide-react';
-import AppLayout from '@/components/AppLayout';
 
 const StatCard: React.FC<{
   title: string; value: string; subtitle?: string;
@@ -39,12 +38,11 @@ const Dashboard = () => {
   const currentMonth = new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
 
   return (
-    <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold font-display">¡Hola, {displayName}!</h1>
-          <p className="text-muted-foreground text-sm capitalize">{currentMonth}</p>
-        </div>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold font-display">¡Hola, {displayName}!</h1>
+        <p className="text-muted-foreground text-sm capitalize">{currentMonth}</p>
+      </div>
 
         {/* Quick stats */}
         <div className="grid grid-cols-2 gap-3">
@@ -101,7 +99,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </div>
   );
 };
 

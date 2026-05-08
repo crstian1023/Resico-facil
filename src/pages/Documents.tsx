@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import AppLayout from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -56,9 +55,8 @@ const Documents = () => {
   };
 
   return (
-    <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold font-display">Expediente Digital</h1>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <h1 className="text-2xl font-bold font-display">Expediente Digital</h1>
 
         <Card>
           <CardContent className="p-4 space-y-3">
@@ -130,7 +128,7 @@ const Documents = () => {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </div>
   );
 };
 
