@@ -44,6 +44,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         emailRedirectTo: window.location.origin,
       },
     });
+
+    if (error?.status === 429) {
+      return {
+        error: {
+          ...error,
+          message:
+            'Límite de correos alcanzado. Espera unos minutos e inténtalo de nuevo.',
+        },
+      };
+    }
+
     return { error };
   };
 

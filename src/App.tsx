@@ -18,6 +18,7 @@ import SupportCredits from "./pages/SupportCredits";
 import Tutorials from "./pages/Tutorials";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
+import Navbar from '@/components/Navbar';
 
 const queryClient = new QueryClient();
 
