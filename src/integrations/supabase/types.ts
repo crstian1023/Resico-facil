@@ -136,36 +136,61 @@ export type Database = {
       }
       declaration_drafts: {
         Row: {
+          calculation_id: string | null
           created_at: string
           form_data: Json | null
+          frozen_at: string | null
           id: string
+          pdf_generated_at: string | null
+          pdf_storage_path: string | null
           pdf_url: string | null
+          period_month: number | null
+          period_year: number | null
           status: string | null
           tax_period_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          calculation_id?: string | null
           created_at?: string
           form_data?: Json | null
+          frozen_at?: string | null
           id?: string
+          pdf_generated_at?: string | null
+          pdf_storage_path?: string | null
           pdf_url?: string | null
+          period_month?: number | null
+          period_year?: number | null
           status?: string | null
           tax_period_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          calculation_id?: string | null
           created_at?: string
           form_data?: Json | null
+          frozen_at?: string | null
           id?: string
+          pdf_generated_at?: string | null
+          pdf_storage_path?: string | null
           pdf_url?: string | null
+          period_month?: number | null
+          period_year?: number | null
           status?: string | null
           tax_period_id?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "declaration_drafts_calculation_id_fkey"
+            columns: ["calculation_id"]
+            isOneToOne: false
+            referencedRelation: "tax_calculations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "declaration_drafts_tax_period_id_fkey"
             columns: ["tax_period_id"]
@@ -634,6 +659,69 @@ export type Database = {
           synced_at?: string | null
           table_name?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      tax_calculations: {
+        Row: {
+          applied_rate: number
+          breakdown: Json | null
+          calculation_version: string
+          created_at: string
+          estimated_tax: number
+          id: string
+          is_current: boolean
+          notes: string | null
+          period_month: number
+          period_year: number
+          supersedes_id: string | null
+          taxable_base: number
+          taxpayer_profile_id: string | null
+          total_expenses: number
+          total_income: number
+          updated_at: string
+          user_id: string
+          version_number: number
+        }
+        Insert: {
+          applied_rate?: number
+          breakdown?: Json | null
+          calculation_version?: string
+          created_at?: string
+          estimated_tax?: number
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          period_month: number
+          period_year: number
+          supersedes_id?: string | null
+          taxable_base?: number
+          taxpayer_profile_id?: string | null
+          total_expenses?: number
+          total_income?: number
+          updated_at?: string
+          user_id: string
+          version_number?: number
+        }
+        Update: {
+          applied_rate?: number
+          breakdown?: Json | null
+          calculation_version?: string
+          created_at?: string
+          estimated_tax?: number
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          period_month?: number
+          period_year?: number
+          supersedes_id?: string | null
+          taxable_base?: number
+          taxpayer_profile_id?: string | null
+          total_expenses?: number
+          total_income?: number
+          updated_at?: string
+          user_id?: string
+          version_number?: number
         }
         Relationships: []
       }
