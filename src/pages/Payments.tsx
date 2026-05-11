@@ -4,9 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CreditCard, Check, Star, Crown } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CreditCard, Check, Star, Crown, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/hooks/useSubscription';
+import { getStripeEnvironment } from '@/lib/stripe';
+import { StripeEmbeddedCheckout } from '@/components/StripeEmbeddedCheckout';
+import { PaymentTestModeBanner } from '@/components/PaymentTestModeBanner';
 import { toast } from 'sonner';
 
 interface Plan {
@@ -15,13 +20,7 @@ interface Plan {
   price: number;
   interval: string;
   features: any;
-}
-
-interface Subscription {
-  id: string;
-  plan_id: string | null;
-  status: string;
-  is_subsidized: boolean;
+  stripe_price_id: string | null;
 }
 
 const planIcons: Record<string, React.ElementType> = {
@@ -30,65 +29,77 @@ const planIcons: Record<string, React.ElementType> = {
 
 const Payments = () => {
   const { user } = useAuth();
+  const { subscription, isActive, loading: subLoading } = useSubscription();
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activating, setActivating] = useState<string | null>(null);
+  const [checkoutPriceId, setCheckoutPriceId] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
-  const load = async () => {
-    if (!user) return;
-    setLoading(true);
-    const [plansRes, subRes] = await Promise.all([
-      supabase.from('subscription_plans').select('*').eq('is_active', true).order('price'),
-      supabase
-        .from('user_subscriptions')
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('subscription_plans')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-    setPlans((plansRes.data ?? []) as Plan[]);
-    setSubscription((subRes.data ?? null) as Subscription | null);
-    setLoading(false);
+        .eq('is_active', true)
+        .order('price');
+      setPlans((data ?? []) as Plan[]);
+      setLoading(false);
+    })();
+  }, []);
+
+  const currentPlan = plans.find((p) => p.stripe_price_id && p.stripe_price_id === subscription?.price_id);
+  const freePlan = plans.find((p) => Number(p.price) === 0);
+  const effectivePlan = isActive ? currentPlan : freePlan;
+
+  const openCheckout = (priceId: string | null) => {
+    if (!priceId) return;
+    setCheckoutPriceId(priceId);
   };
 
-  useEffect(() => { load(); }, [user]);
-
-  const choosePlan = async (planId: string, price: number) => {
-    if (!user) return;
-    setActivating(planId);
-    const { error } = await supabase.from('user_subscriptions').insert({
-      user_id: user.id,
-      plan_id: planId,
-      status: 'active',
-      is_subsidized: price === 0,
+  const openPortal = async () => {
+    setPortalLoading(true);
+    const { data, error } = await supabase.functions.invoke('create-portal-session', {
+      body: {
+        environment: getStripeEnvironment(),
+        returnUrl: `${window.location.origin}/payments`,
+      },
     });
-    if (error) toast.error(`Error: ${error.message}`);
-    else { toast.success('Plan activado'); await load(); }
-    setActivating(null);
+    setPortalLoading(false);
+    if (error || !data?.url) {
+      toast.error('No se pudo abrir el portal de pagos');
+      return;
+    }
+    window.open(data.url, '_blank');
   };
-
-  const currentPlan = plans.find((p) => p.id === subscription?.plan_id);
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <PaymentTestModeBanner />
+      <div className="max-w-4xl mx-auto space-y-6 p-4">
         <h1 className="text-2xl font-bold font-display">Pagos y Suscripción</h1>
 
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
+          <CardContent className="p-4 flex items-center gap-3 flex-wrap">
             <div className="p-2 rounded-lg bg-accent text-accent-foreground"><Star size={18} /></div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-[180px]">
               <p className="font-medium text-sm">
-                Plan actual: {loading ? '...' : currentPlan?.name ?? 'Sin plan activo'}
+                Plan actual: {subLoading || loading ? '...' : effectivePlan?.name ?? 'Sin plan activo'}
               </p>
               <p className="text-xs text-muted-foreground">
-                {subscription?.is_subsidized ? 'Subsidiado' : 'Suscripción regular'}
+                {subscription?.cancel_at_period_end
+                  ? `Se cancela al final del periodo (${new Date(subscription.current_period_end!).toLocaleDateString('es-MX')})`
+                  : subscription?.status === 'past_due'
+                    ? 'Pago pendiente — Stripe está reintentando'
+                    : isActive ? 'Suscripción activa' : 'Plan gratuito'}
               </p>
             </div>
-            {subscription && <Badge className="bg-success text-success-foreground">Activo</Badge>}
+            {isActive && <Badge className="bg-success text-success-foreground">Activo</Badge>}
+            {isActive && subscription && (
+              <Button size="sm" variant="outline" onClick={openPortal} disabled={portalLoading}>
+                <ExternalLink size={14} className="mr-1" />
+                {portalLoading ? 'Abriendo...' : 'Gestionar suscripción'}
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -98,7 +109,8 @@ const Payments = () => {
           ) : (
             plans.map((plan) => {
               const Icon = planIcons[plan.name] ?? CreditCard;
-              const isCurrent = plan.id === subscription?.plan_id;
+              const isCurrent = isActive && plan.stripe_price_id === subscription?.price_id;
+              const isFree = Number(plan.price) === 0;
               const features: string[] = Array.isArray(plan.features)
                 ? plan.features
                 : (plan.features?.items ?? []);
@@ -111,7 +123,9 @@ const Payments = () => {
                       <span className="text-3xl font-bold font-display">
                         ${Number(plan.price).toLocaleString('es-MX')}
                       </span>
-                      <span className="text-muted-foreground text-sm">/{plan.interval === 'monthly' ? 'mes' : plan.interval}</span>
+                      <span className="text-muted-foreground text-sm">
+                        /{plan.interval === 'monthly' ? 'mes' : plan.interval}
+                      </span>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -123,10 +137,16 @@ const Payments = () => {
                     <Button
                       variant={isCurrent ? 'outline' : 'default'}
                       className="w-full mt-4"
-                      disabled={isCurrent || activating === plan.id}
-                      onClick={() => choosePlan(plan.id, Number(plan.price))}
+                      disabled={isCurrent || isFree || !plan.stripe_price_id}
+                      onClick={() => openCheckout(plan.stripe_price_id)}
                     >
-                      {isCurrent ? 'Plan actual' : activating === plan.id ? 'Activando...' : 'Elegir plan'}
+                      {isCurrent
+                        ? 'Plan actual'
+                        : isFree
+                          ? 'Plan gratuito'
+                          : isActive
+                            ? 'Cambiar a este plan'
+                            : 'Suscribirme'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -135,14 +155,20 @@ const Payments = () => {
           )}
         </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display">Historial de pagos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground text-center py-6">No hay pagos registrados</p>
-          </CardContent>
-        </Card>
+        <Dialog open={!!checkoutPriceId} onOpenChange={(open) => !open && setCheckoutPriceId(null)}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+            <DialogHeader className="p-4 pb-0">
+              <DialogTitle>Completa tu pago</DialogTitle>
+            </DialogHeader>
+            {checkoutPriceId && user && (
+              <StripeEmbeddedCheckout
+                priceId={checkoutPriceId}
+                customerEmail={user.email}
+                userId={user.id}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

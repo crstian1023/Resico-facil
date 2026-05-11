@@ -10,7 +10,9 @@ import {
   FileText, Plus, ArrowRight, AlertCircle, CheckCircle2
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
+import AccountantInvitations from '@/components/AccountantInvitations';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useUserRole } from '@/hooks/useUserRole';
 
 const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
@@ -45,8 +47,13 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data, isLoading } = useDashboardStats();
+  const { data: role } = useUserRole();
   const displayName = user?.user_metadata?.full_name?.split(' ')[0] || 'Usuario';
   const currentMonth = new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+
+  React.useEffect(() => {
+    if (role === 'accountant') navigate('/contador', { replace: true });
+  }, [role, navigate]);
 
   return (
     <AppLayout>
@@ -55,6 +62,8 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold font-display">¡Hola, {displayName}!</h1>
           <p className="text-muted-foreground text-sm capitalize">{currentMonth}</p>
         </div>
+
+        <AccountantInvitations />
 
         <div className="grid grid-cols-2 gap-3">
           <StatCard

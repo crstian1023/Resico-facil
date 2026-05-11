@@ -120,7 +120,25 @@ Deno.serve(async (req) => {
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const { height } = page.getSize();
 
-    let y = height - 60;
+    const { width } = page.getSize();
+    const folio = String(calc.id).slice(0, 8).toUpperCase();
+
+    // Encabezado con banda verde
+    page.drawRectangle({ x: 0, y: height - 90, width, height: 90, color: rgb(0.13, 0.45, 0.30) });
+    page.drawText('Declaración Mensual RESICO', {
+      x: 50, y: height - 45, size: 20, font: fontBold, color: rgb(1, 1, 1),
+    });
+    page.drawText(`${MONTHS[(calc.period_month ?? 1) - 1]} ${calc.period_year}`, {
+      x: 50, y: height - 70, size: 12, font, color: rgb(0.95, 0.97, 0.95),
+    });
+    page.drawText(`Folio ${folio}`, {
+      x: width - 140, y: height - 45, size: 11, font: fontBold, color: rgb(1, 1, 1),
+    });
+    page.drawText(new Date().toLocaleDateString('es-MX'), {
+      x: width - 140, y: height - 70, size: 10, font, color: rgb(0.95, 0.97, 0.95),
+    });
+
+    let y = height - 120;
     const draw = (text: string, opts: { size?: number; bold?: boolean; x?: number; color?: any } = {}) => {
       page.drawText(text, {
         x: opts.x ?? 50,
@@ -130,11 +148,6 @@ Deno.serve(async (req) => {
         color: opts.color ?? rgb(0.1, 0.1, 0.1),
       });
     };
-
-    draw('Declaración Mensual RESICO', { size: 18, bold: true });
-    y -= 26;
-    draw(`Periodo: ${MONTHS[(calc.period_month ?? 1) - 1]} ${calc.period_year}`, { size: 12, bold: true });
-    y -= 30;
 
     draw('Datos del contribuyente', { size: 13, bold: true }); y -= 18;
     draw(`Nombre: ${profile?.full_name ?? '—'}`); y -= 14;
@@ -167,8 +180,13 @@ Deno.serve(async (req) => {
       y -= 12;
     }
 
-    draw('Documento informativo. No sustituye la presentación ante el SAT.', {
-      size: 9, color: rgb(0.5, 0.5, 0.5),
+    // Pie de página con disclaimer destacado
+    page.drawRectangle({ x: 40, y: 50, width: width - 80, height: 40, color: rgb(0.97, 0.93, 0.85) });
+    page.drawText('Documento informativo — valida en el SAT antes de presentar.', {
+      x: 50, y: 72, size: 10, font: fontBold, color: rgb(0.55, 0.35, 0.10),
+    });
+    page.drawText('Generado por Resico Fácil. Conserva este folio para tus registros.', {
+      x: 50, y: 58, size: 8, font, color: rgb(0.45, 0.30, 0.10),
     });
 
     const pdfBytes = await pdfDoc.save();

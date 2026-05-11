@@ -17,6 +17,8 @@ import Payments from "./pages/Payments";
 import SupportCredits from "./pages/SupportCredits";
 import Tutorials from "./pages/Tutorials";
 import SettingsPage from "./pages/SettingsPage";
+import AccountantPanel from "./pages/AccountantPanel";
+import CheckoutReturn from "./pages/CheckoutReturn";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +52,8 @@ const AppRoutes = () => (
     <Route path="/support-credits" element={<ProtectedRoute><SupportCredits /></ProtectedRoute>} />
     <Route path="/tutorials" element={<ProtectedRoute><Tutorials /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/contador" element={<ProtectedRoute><AccountantPanel /></ProtectedRoute>} />
+    <Route path="/checkout/return" element={<ProtectedRoute><CheckoutReturn /></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

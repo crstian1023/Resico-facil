@@ -14,16 +14,7 @@ interface Tutorial {
   description: string | null;
   duration_minutes: number | null;
   order_index: number | null;
-  video_url?: string; // nuevo campo opcional
 }
-
-// enlaces de videos
-const tutorialLinks: string[] = [
-  "https://youtu.be/WDt5QCQ3HOY",
-  "https://youtu.be/wKBSYxAjd58",
-  "https://youtu.be/XjCE6y2uBxg",
-  "https://youtu.be/TbBRSOJcvws",
-];
 
 const Tutorials = () => {
   const { user } = useAuth();
@@ -37,12 +28,7 @@ const Tutorials = () => {
       supabase.from("tutorials").select("*").eq("is_published", true).order("order_index"),
       supabase.from("tutorial_progress").select("tutorial_id, completed").eq("user_id", user.id).eq("completed", true),
     ]);
-    // asignar videos en orden
-    const withVideos = (tRes.data ?? []).map((t: any, idx: number) => ({
-      ...t,
-      video_url: tutorialLinks[idx % tutorialLinks.length],
-    }));
-    setTutorials(withVideos as Tutorial[]);
+    setTutorials((tRes.data ?? []) as Tutorial[]);
     setCompletedIds(new Set((pRes.data ?? []).map((p: any) => p.tutorial_id)));
     setLoading(false);
   };
@@ -61,11 +47,6 @@ const Tutorials = () => {
       toast.success("¡Tutorial completado!");
       setCompletedIds((s) => new Set(s).add(id));
     }
-  };
-
-  const openTutorial = (id: string, url?: string) => {
-    if (url) window.open(url, "_blank");
-    markCompleted(id);
   };
 
   const completed = completedIds.size;
@@ -101,7 +82,7 @@ const Tutorials = () => {
                 <Card
                   key={t.id}
                   className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => openTutorial(t.id, t.video_url)}
+                  onClick={() => markCompleted(t.id)}
                 >
                   <CardContent className="p-4 flex items-center gap-3">
                     <div

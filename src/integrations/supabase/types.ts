@@ -137,48 +137,72 @@ export type Database = {
       declaration_drafts: {
         Row: {
           calculation_id: string | null
+          cfdi_demo_folio: string | null
+          cfdi_demo_path: string | null
+          cfdi_generated_at: string | null
           created_at: string
           form_data: Json | null
           frozen_at: string | null
           id: string
+          paid_at: string | null
+          payment_amount: number | null
+          payment_status: string
+          payment_transaction_id: string | null
           pdf_generated_at: string | null
           pdf_storage_path: string | null
           pdf_url: string | null
           period_month: number | null
           period_year: number | null
           status: string | null
+          stripe_session_id: string | null
           tax_period_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           calculation_id?: string | null
+          cfdi_demo_folio?: string | null
+          cfdi_demo_path?: string | null
+          cfdi_generated_at?: string | null
           created_at?: string
           form_data?: Json | null
           frozen_at?: string | null
           id?: string
+          paid_at?: string | null
+          payment_amount?: number | null
+          payment_status?: string
+          payment_transaction_id?: string | null
           pdf_generated_at?: string | null
           pdf_storage_path?: string | null
           pdf_url?: string | null
           period_month?: number | null
           period_year?: number | null
           status?: string | null
+          stripe_session_id?: string | null
           tax_period_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           calculation_id?: string | null
+          cfdi_demo_folio?: string | null
+          cfdi_demo_path?: string | null
+          cfdi_generated_at?: string | null
           created_at?: string
           form_data?: Json | null
           frozen_at?: string | null
           id?: string
+          paid_at?: string | null
+          payment_amount?: number | null
+          payment_status?: string
+          payment_transaction_id?: string | null
           pdf_generated_at?: string | null
           pdf_storage_path?: string | null
           pdf_url?: string | null
           period_month?: number | null
           period_year?: number | null
           status?: string | null
+          stripe_session_id?: string | null
           tax_period_id?: string | null
           updated_at?: string
           user_id?: string
@@ -355,6 +379,153 @@ export type Database = {
           },
         ]
       }
+      financial_applications: {
+        Row: {
+          approved_amount: number | null
+          approved_at: string | null
+          approved_monthly_payment: number | null
+          approved_term_months: number | null
+          cat_estimate: number
+          created_at: string
+          estimated_monthly_payment: number
+          estimated_total_payment: number
+          folio: string
+          id: string
+          monthly_rate: number
+          notes: string | null
+          pdf_generated_at: string | null
+          pdf_path: string | null
+          requested_amount: number
+          risk_snapshot: string | null
+          score_snapshot: number | null
+          status: string
+          term_months: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_amount?: number | null
+          approved_at?: string | null
+          approved_monthly_payment?: number | null
+          approved_term_months?: number | null
+          cat_estimate?: number
+          created_at?: string
+          estimated_monthly_payment?: number
+          estimated_total_payment?: number
+          folio?: string
+          id?: string
+          monthly_rate?: number
+          notes?: string | null
+          pdf_generated_at?: string | null
+          pdf_path?: string | null
+          requested_amount: number
+          risk_snapshot?: string | null
+          score_snapshot?: number | null
+          status?: string
+          term_months: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_amount?: number | null
+          approved_at?: string | null
+          approved_monthly_payment?: number | null
+          approved_term_months?: number | null
+          cat_estimate?: number
+          created_at?: string
+          estimated_monthly_payment?: number
+          estimated_total_payment?: number
+          folio?: string
+          id?: string
+          monthly_rate?: number
+          notes?: string | null
+          pdf_generated_at?: string | null
+          pdf_path?: string | null
+          requested_amount?: number
+          risk_snapshot?: string | null
+          score_snapshot?: number | null
+          status?: string
+          term_months?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      financial_documents: {
+        Row: {
+          application_id: string | null
+          created_at: string
+          doc_type: string
+          file_name: string
+          id: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          created_at?: string
+          doc_type: string
+          file_name: string
+          id?: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          application_id?: string | null
+          created_at?: string
+          doc_type?: string
+          file_name?: string
+          id?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      financial_scores: {
+        Row: {
+          active_months: number
+          breakdown: Json | null
+          computed_at: string
+          created_at: string
+          declarations_count: number
+          estimated_capacity: number
+          id: string
+          monthly_avg_expense: number
+          monthly_avg_income: number
+          risk_level: string
+          score: number
+          user_id: string
+        }
+        Insert: {
+          active_months?: number
+          breakdown?: Json | null
+          computed_at?: string
+          created_at?: string
+          declarations_count?: number
+          estimated_capacity?: number
+          id?: string
+          monthly_avg_expense?: number
+          monthly_avg_income?: number
+          risk_level?: string
+          score?: number
+          user_id: string
+        }
+        Update: {
+          active_months?: number
+          breakdown?: Json | null
+          computed_at?: string
+          created_at?: string
+          declarations_count?: number
+          estimated_capacity?: number
+          id?: string
+          monthly_avg_expense?: number
+          monthly_avg_income?: number
+          risk_level?: string
+          score?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       income_records: {
         Row: {
           amount: number
@@ -425,33 +596,42 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          declaration_id: string | null
+          environment: string
           id: string
           payment_method: string | null
           payment_reference: string | null
           provider_data: Json | null
           status: string | null
+          stripe_session_id: string | null
           subscription_id: string | null
           user_id: string
         }
         Insert: {
           amount: number
           created_at?: string
+          declaration_id?: string | null
+          environment?: string
           id?: string
           payment_method?: string | null
           payment_reference?: string | null
           provider_data?: Json | null
           status?: string | null
+          stripe_session_id?: string | null
           subscription_id?: string | null
           user_id: string
         }
         Update: {
           amount?: number
           created_at?: string
+          declaration_id?: string | null
+          environment?: string
           id?: string
           payment_method?: string | null
           payment_reference?: string | null
           provider_data?: Json | null
           status?: string | null
+          stripe_session_id?: string | null
           subscription_id?: string | null
           user_id?: string
         }
@@ -504,6 +684,7 @@ export type Database = {
           is_active: boolean | null
           name: string
           price: number
+          stripe_price_id: string | null
         }
         Insert: {
           created_at?: string
@@ -513,6 +694,7 @@ export type Database = {
           is_active?: boolean | null
           name: string
           price: number
+          stripe_price_id?: string | null
         }
         Update: {
           created_at?: string
@@ -522,6 +704,55 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           price?: number
+          stripe_price_id?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          environment: string
+          id: string
+          price_id: string
+          product_id: string
+          status: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          price_id: string
+          product_id: string
+          status?: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          price_id?: string
+          product_id?: string
+          status?: string
+          stripe_customer_id?: string
+          stripe_subscription_id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -971,6 +1202,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_plan_limits: {
+        Args: { check_env?: string; user_uuid: string }
+        Returns: Json
+      }
+      has_active_subscription: {
+        Args: { check_env?: string; user_uuid: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
