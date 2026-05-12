@@ -34,7 +34,12 @@ const taxpayerSchema = z.object({
 const accountantSchema = z.object({
   ...baseSchema,
   role: z.literal("accountant"),
-  licenseNumber: z.string().trim().min(5, "Cédula mínimo 5 caracteres").max(20).regex(/^[A-Z0-9-]+$/i, "Solo letras, números y guiones"),
+  licenseNumber: z
+    .string()
+    .trim()
+    .min(5, "Cédula mínimo 5 caracteres")
+    .max(20)
+    .regex(/^[A-Z0-9-]+$/i, "Solo letras, números y guiones"),
   specialization: z.string().trim().min(3, "Mínimo 3 caracteres").max(120),
 });
 
@@ -55,7 +60,12 @@ const Register = () => {
   const navigate = useNavigate();
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = k === "rfc" ? e.target.value.toUpperCase().replace(/\s+/g, "") : k === "phone" ? e.target.value.replace(/\D/g, "").slice(0, 10) : e.target.value;
+    const val =
+      k === "rfc"
+        ? e.target.value.toUpperCase().replace(/\s+/g, "")
+        : k === "phone"
+          ? e.target.value.replace(/\D/g, "").slice(0, 10)
+          : e.target.value;
     setForm((f) => ({ ...f, [k]: val }));
     if (errors[k]) setErrors((er) => ({ ...er, [k]: "" }));
   };
@@ -165,7 +175,9 @@ const Register = () => {
                   }}
                   className={cn(
                     "flex flex-col items-center gap-1 rounded-lg border p-3 text-sm font-medium transition-colors",
-                    role === value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted",
+                    role === value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-muted",
                   )}
                 >
                   <Icon size={20} />
@@ -177,17 +189,39 @@ const Register = () => {
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div className="space-y-1">
                 <Label htmlFor="name">Nombre completo *</Label>
-                <Input id="name" value={form.fullName} onChange={set("fullName")} className="h-11" autoComplete="name" />
+                <Input
+                  id="name"
+                  value={form.fullName}
+                  onChange={set("fullName")}
+                  className="h-11"
+                  autoComplete="name"
+                />
                 <FieldError name="fullName" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="email">Correo *</Label>
-                <Input id="email" type="email" value={form.email} onChange={set("email")} className="h-11" autoComplete="email" />
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={set("email")}
+                  className="h-11"
+                  autoComplete="email"
+                />
                 <FieldError name="email" />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="password">Contraseña * <span className="text-xs text-muted-foreground">(mín. 8)</span></Label>
-                <Input id="password" type="password" value={form.password} onChange={set("password")} className="h-11" autoComplete="new-password" />
+                <Label htmlFor="password">
+                  Contraseña * <span className="text-xs text-muted-foreground">(mín. 8)</span>
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={form.password}
+                  onChange={set("password")}
+                  className="h-11"
+                  autoComplete="new-password"
+                />
                 <FieldError name="password" />
               </div>
 
@@ -195,12 +229,29 @@ const Register = () => {
                 <>
                   <div className="space-y-1">
                     <Label htmlFor="rfc">RFC *</Label>
-                    <Input id="rfc" value={form.rfc} onChange={set("rfc")} maxLength={13} className="h-11 uppercase font-mono" placeholder="ABCD800101XYZ" />
+                    <Input
+                      id="rfc"
+                      value={form.rfc}
+                      onChange={set("rfc")}
+                      maxLength={13}
+                      className="h-11 uppercase font-mono"
+                      placeholder="ABCD800101XYZ"
+                    />
                     <FieldError name="rfc" />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="phone">Teléfono * <span className="text-xs text-muted-foreground">(10 dígitos)</span></Label>
-                    <Input id="phone" type="tel" inputMode="numeric" value={form.phone} onChange={set("phone")} className="h-11" placeholder="5512345678" />
+                    <Label htmlFor="phone">
+                      Teléfono * <span className="text-xs text-muted-foreground">(10 dígitos)</span>
+                    </Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      value={form.phone}
+                      onChange={set("phone")}
+                      className="h-11"
+                      placeholder="5512345678"
+                    />
                     <FieldError name="phone" />
                   </div>
                 </>
@@ -208,12 +259,24 @@ const Register = () => {
                 <>
                   <div className="space-y-1">
                     <Label htmlFor="license">Cédula profesional *</Label>
-                    <Input id="license" value={form.licenseNumber} onChange={set("licenseNumber")} className="h-11" maxLength={20} />
+                    <Input
+                      id="license"
+                      value={form.licenseNumber}
+                      onChange={set("licenseNumber")}
+                      className="h-11"
+                      maxLength={20}
+                    />
                     <FieldError name="licenseNumber" />
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="spec">Despacho / especialidad *</Label>
-                    <Input id="spec" value={form.specialization} onChange={set("specialization")} className="h-11" maxLength={120} />
+                    <Input
+                      id="spec"
+                      value={form.specialization}
+                      onChange={set("specialization")}
+                      className="h-11"
+                      maxLength={120}
+                    />
                     <FieldError name="specialization" />
                   </div>
                 </>
@@ -222,17 +285,26 @@ const Register = () => {
               <div className="flex items-start space-x-2">
                 <Checkbox id="terms" checked={acceptTerms} onCheckedChange={(c) => setAcceptTerms(c === true)} />
                 <label htmlFor="terms" className="text-sm text-muted-foreground leading-tight cursor-pointer">
-                  Acepto los <span className="text-primary">términos</span> y el <span className="text-primary">aviso de privacidad</span>
+                  Acepto los <span className="text-primary">términos</span> y el{" "}
+                  <span className="text-primary">aviso de privacidad</span>
                 </label>
               </div>
               <FieldError name="acceptTerms" />
 
               <Button type="submit" size="lg" className="w-full" disabled={loading}>
-                {loading ? "Creando cuenta..." : (<><UserPlus size={18} /> Crear cuenta</>)}
+                {loading ? (
+                  "Creando cuenta..."
+                ) : (
+                  <>
+                    <UserPlus size={18} /> Crear cuenta
+                  </>
+                )}
               </Button>
               <p className="text-center text-sm text-muted-foreground">
                 ¿Ya tienes cuenta?{" "}
-                <Link to="/login" className="text-primary hover:underline font-medium">Inicia sesión</Link>
+                <Link to="/login" className="text-primary hover:underline font-medium">
+                  Inicia sesión
+                </Link>
               </p>
             </form>
           </CardContent>

@@ -1,370 +1,642 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom"; // Importado para la navegación
 import AppLayout from "@/components/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  FileText,
+  CheckCircle2,
+  Loader2,
+  Sparkles,
+  Download,
+  ArrowLeft,
+  Calculator,
+  Wallet,
+  TrendingDown,
+  Receipt,
+  Pencil,
+  Save,
+  CreditCard,
+  ScrollText,
+  Home, // Icono para el botón de inicio
+} from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import {
+  useCalculateTaxPeriod,
+  useDeclarationDrafts,
+  useSaveDeclarationDraft,
+  useTaxCalculations,
+  useGenerateDeclarationPdf,
+  useRefreshPdfSignedUrl,
+  type TaxCalculation,
+} from "@/hooks/useTaxEngine";
+import { useTaxpayerProfile } from "@/hooks/useTaxpayerProfile";
+import { useGenerateCfdiDemo, useRefreshCfdiSignedUrl } from "@/hooks/useDeclarationPayments";
+import { DeclarationCheckout } from "@/components/DeclarationCheckout";
+import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 
-const RESICO_LIMIT = 3_500_000;
+const fmt = (n: number) =>
+  `$${Number(n ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const incomeCategories = ["Ventas", "Servicios", "Comisiones", "Otros ingresos"];
-const expenseCategories = ["Materia prima", "Renta", "Servicios", "Transporte", "Comida", "Papelería", "Otros gastos"];
+const MONTHS = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
-interface Transaction {
-  id: string;
-  type: "income" | "expense";
-  amount: number;
-  category: string;
-  description: string;
-  date: string;
-}
+const downloadPdf = async (url: string, fileName: string) => {
+  if (!url) return;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("No se pudo obtener el archivo del servidor");
 
-// ── Gráfica de barras verticales de fondo (solo visual) ─────────────────────
-const INCOME_BARS = [88, 72, 50, 28];
-const EXPENSE_BARS = [95, 78, 60, 44, 32, 20, 14];
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
 
-const BgBarChart: React.FC<{ type: "income" | "expense" }> = ({ type }) => {
-  const bars = type === "income" ? INCOME_BARS : EXPENSE_BARS;
-  const color = type === "income" ? "#22c55e" : "#f87171";
-  return (
-    <div className="absolute inset-0 flex items-end gap-[4px] px-3 pointer-events-none" aria-hidden>
-      {bars.map((pct, i) => (
-        <div key={i} className="flex-1 rounded-t-md" style={{ height: `${pct}%`, background: color, opacity: 0.22 }} />
-      ))}
-    </div>
-  );
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    }, 100);
+  } catch (error) {
+    console.error("Error en descarga segura:", error);
+    window.open(url, "_blank");
+  }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+type Mode = "home" | "flow";
 
-const IncomeExpenses = () => {
-  const { user } = useAuth();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [newType, setNewType] = useState<"income" | "expense">("income");
-  const [newAmount, setNewAmount] = useState("");
-  const [newCategory, setNewCategory] = useState("");
-  const [newDescription, setNewDescription] = useState("");
-  const [newDate, setNewDate] = useState(new Date().toISOString().split("T")[0]);
+const Declarations = () => {
+  const navigate = useNavigate(); // Hook para navegar
+  const now = new Date();
+  const [mode, setMode] = useState<Mode>("home");
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [currentCalc, setCurrentCalc] = useState<TaxCalculation | null>(null);
+  const [editIncome, setEditIncome] = useState("");
+  const [editExpenses, setEditExpenses] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [savingAll, setSavingAll] = useState(false);
+  const [payingDraftId, setPayingDraftId] = useState<string | null>(null);
+  const [cfdiBusyId, setCfdiBusyId] = useState<string | null>(null);
 
-  // ── Load ──────────────────────────────────────────────────────────────────
-  const loadTransactions = async () => {
-    if (!user) return;
-    setLoadingData(true);
+  const { data: profile } = useTaxpayerProfile();
+  const { data: calculations, isLoading } = useTaxCalculations({ onlyCurrent: true });
+  const { data: drafts } = useDeclarationDrafts();
+  const calculate = useCalculateTaxPeriod();
+  const saveDraft = useSaveDeclarationDraft();
+  const generatePdf = useGenerateDeclarationPdf();
+  const refreshSigned = useRefreshPdfSignedUrl();
+  const generateCfdi = useGenerateCfdiDemo();
+  const refreshCfdi = useRefreshCfdiSignedUrl();
 
-    const [incomeRes, expenseRes] = await Promise.all([
-      supabase
-        .from("income_records")
-        .select("id, amount, category_name, description, date")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .order("date", { ascending: false }),
-      supabase
-        .from("expense_records")
-        .select("id, amount, category_name, description, date")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .order("date", { ascending: false }),
-    ]);
+  const years = Array.from({ length: 5 }).map((_, i) => now.getFullYear() - i);
 
-    const income: Transaction[] = (incomeRes.data ?? []).map((r) => ({
-      id: r.id,
-      type: "income",
-      amount: Number(r.amount),
-      category: r.category_name ?? "",
-      description: r.description ?? "",
-      date: r.date,
-    }));
-    const expense: Transaction[] = (expenseRes.data ?? []).map((r) => ({
-      id: r.id,
-      type: "expense",
-      amount: Number(r.amount),
-      category: r.category_name ?? "",
-      description: r.description ?? "",
-      date: r.date,
-    }));
-
-    setTransactions([...income, ...expense].sort((a, b) => b.date.localeCompare(a.date)));
-    setLoadingData(false);
-  };
+  const draftByCalc = useMemo(() => {
+    const map = new Map<string, any>();
+    (drafts ?? []).forEach((d) => {
+      if (d.calculation_id) map.set(d.calculation_id, d);
+    });
+    return map;
+  }, [drafts]);
 
   useEffect(() => {
-    loadTransactions();
-  }, [user]);
-
-  // ── Save ──────────────────────────────────────────────────────────────────
-  const handleAdd = async () => {
-    if (!newAmount || !newCategory) {
-      toast.error("Completa monto y categoría");
-      return;
+    if (currentCalc) {
+      setEditIncome(String(currentCalc.total_income ?? 0));
+      setEditExpenses(String(currentCalc.total_expenses ?? 0));
+      setDirty(false);
     }
-    if (!user) return;
-    setSaving(true);
+  }, [currentCalc?.id]);
 
-    const dateObj = new Date(newDate + "T00:00:00");
-    const payload = {
-      user_id: user.id,
-      amount: parseFloat(newAmount),
-      category_name: newCategory,
-      description: newDescription || null,
-      date: newDate,
-      period_year: dateObj.getFullYear(),
-      period_month: dateObj.getMonth() + 1,
-      status: "active",
-    };
+  const currentDraft = currentCalc ? draftByCalc.get(currentCalc.id) : null;
 
-    const { error } = await supabase.from(newType === "income" ? "income_records" : "expense_records").insert(payload);
+  const livePreview = useMemo(() => {
+    if (!currentCalc) return null;
+    const i = Number(editIncome) || 0;
+    const e = Number(editExpenses) || 0;
+    const base = Math.max(0, i - e);
+    const rate = Number(currentCalc.applied_rate) || 0;
+    return { base, isr: base * rate, rate };
+  }, [editIncome, editExpenses, currentCalc]);
 
-    if (error) {
-      toast.error(`Error al guardar: ${error.message}`);
-    } else {
-      toast.success(newType === "income" ? "Ingreso registrado" : "Gasto registrado");
-      setDialogOpen(false);
-      setNewAmount("");
-      setNewCategory("");
-      setNewDescription("");
-      setNewDate(new Date().toISOString().split("T")[0]);
-      await loadTransactions();
-    }
-    setSaving(false);
+  const startNewFlow = () => {
+    setMode("flow");
+    setCurrentCalc(null);
   };
 
-  const totalIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const totalExpenses = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-  const fmt = (n: number) => `$${n.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+  const startEditFlow = (c: TaxCalculation) => {
+    setYear(c.period_year);
+    setMonth(c.period_month);
+    setCurrentCalc(c);
+    setMode("flow");
+  };
 
-  const currentYear = new Date().getFullYear();
-  const annualIncome = transactions
-    .filter((t) => t.type === "income" && new Date(t.date + "T00:00:00").getFullYear() === currentYear)
-    .reduce((s, t) => s + t.amount, 0);
-  const resicoPercent = Math.min((annualIncome / RESICO_LIMIT) * 100, 100);
-  const resicoWarning = resicoPercent >= 80 && resicoPercent < 100;
-  const resicoExceeded = annualIncome >= RESICO_LIMIT;
+  const handleCalculate = async () => {
+    try {
+      const calc = await calculate.mutateAsync({
+        year,
+        month,
+        taxpayer_profile_id: profile?.id ?? null,
+      });
+      setCurrentCalc(calc);
+      toast.success("Listo, revisa tus números");
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al calcular");
+    }
+  };
+
+  const buildFormData = (c: TaxCalculation) => ({
+    total_income: c.total_income,
+    total_expenses: c.total_expenses,
+    taxable_base: c.taxable_base,
+    estimated_tax: c.estimated_tax,
+    applied_rate: c.applied_rate,
+  });
+
+  const handleSaveChanges = async () => {
+    if (!currentCalc) return;
+    const i = Number(editIncome),
+      e = Number(editExpenses);
+    if (![i, e].every((n) => Number.isFinite(n) && n >= 0)) {
+      toast.error("Los montos no pueden ser negativos");
+      return;
+    }
+    try {
+      setSavingAll(true);
+      let calc = currentCalc;
+      if (dirty) {
+        const base = Math.max(0, +(i - e).toFixed(2));
+        calc = await calculate.mutateAsync({
+          year: currentCalc.period_year,
+          month: currentCalc.period_month,
+          taxpayer_profile_id: profile?.id ?? null,
+          overrides: {
+            total_income: +i.toFixed(2),
+            total_expenses: +e.toFixed(2),
+            taxable_base: base,
+          },
+        });
+        setCurrentCalc(calc);
+        toast.success("ISR recalculado");
+      }
+      await saveDraft.mutateAsync({
+        calculation_id: calc.id,
+        period_year: calc.period_year,
+        period_month: calc.period_month,
+        form_data: buildFormData(calc),
+        status: "ready",
+      });
+      await generatePdf.mutateAsync({ calculation_id: calc.id });
+      toast.success("Declaración actualizada");
+      setMode("home");
+      setCurrentCalc(null);
+    } catch (e: any) {
+      toast.error(e.message ?? "No se pudo guardar");
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
+  const handleDownloadExisting = async (draft: any, fileName: string) => {
+    try {
+      setDownloadingId(draft.id);
+      let url = draft.pdf_url as string | undefined;
+      if (draft.pdf_storage_path) {
+        try {
+          url = await refreshSigned.mutateAsync(draft.pdf_storage_path);
+        } catch {}
+      }
+      if (!url) throw new Error("PDF no disponible");
+      await downloadPdf(url, fileName);
+    } catch (e: any) {
+      toast.error(e.message ?? "No se pudo abrir el PDF");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleQuickPdf = async (calcId: string, fileName: string) => {
+    try {
+      setDownloadingId(calcId);
+      const res = await generatePdf.mutateAsync({ calculation_id: calcId });
+      toast.success("PDF listo");
+      await downloadPdf(res.pdf_url, fileName);
+    } catch (e: any) {
+      toast.error(e.message ?? "No se pudo generar el PDF");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadCfdi = async (draft: any) => {
+    try {
+      setCfdiBusyId(draft.id);
+      let url: string | undefined;
+      if (draft.cfdi_demo_path) {
+        try {
+          url = await refreshCfdi.mutateAsync(draft.cfdi_demo_path);
+        } catch {}
+      }
+      if (!url) {
+        const res = await generateCfdi.mutateAsync(draft.id);
+        url = res.url;
+      }
+      const fileName = `cfdi-demo-${draft.cfdi_demo_folio ?? draft.id.slice(0, 8)}.pdf`;
+      await downloadPdf(url!, fileName);
+      toast.success("Comprobante demo listo");
+    } catch (e: any) {
+      toast.error(e.message ?? "No se pudo generar el comprobante");
+    } finally {
+      setCfdiBusyId(null);
+    }
+  };
+
+  const PaymentBadge = ({ status }: { status?: string | null }) => {
+    const map: Record<string, { label: string; cls: string }> = {
+      paid: { label: "Pagada", cls: "bg-green-100 text-green-700 hover:bg-green-100" },
+      ready_to_pay: { label: "Lista para pagar", cls: "bg-amber-100 text-amber-800 hover:bg-amber-100" },
+      under_review: { label: "En revisión", cls: "bg-blue-100 text-blue-700 hover:bg-blue-100" },
+      pending: { label: "Pendiente", cls: "bg-muted text-muted-foreground hover:bg-muted" },
+    };
+    const cfg = map[status ?? "pending"] ?? map.pending;
+    return <Badge className={`text-[10px] h-5 ${cfg.cls}`}>{cfg.label}</Badge>;
+  };
+
+  const renderHome = () => (
+    <div className="space-y-5 pb-24 md:pb-6">
+      <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/30 overflow-hidden">
+        <CardContent className="p-5 sm:p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="p-3 rounded-xl bg-primary/10 text-primary shrink-0">
+              <Receipt size={24} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-display font-bold text-lg sm:text-xl">Tu declaración mensual</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Elige el mes, revisa tus números y descarga tu PDF para pagar.
+              </p>
+            </div>
+          </div>
+          <Button size="lg" className="w-full sm:w-auto h-12 text-base" onClick={startNewFlow}>
+            <FileText size={18} /> Nueva declaración
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-display font-semibold text-base">Tus declaraciones</h3>
+          <span className="text-xs text-muted-foreground">{calculations?.length ?? 0} en total</span>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-24 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : (calculations ?? []).length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="py-10 text-center space-y-2">
+              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                <FileText size={20} className="text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">Aún no tienes declaraciones</p>
+              <p className="text-xs text-muted-foreground">Pulsa "Nueva declaración" para empezar.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3">
+            {calculations!.map((c) => {
+              const draft = draftByCalc.get(c.id);
+              const hasPdf = draft?.status === "exported_pdf";
+              const fileName = `declaracion-${c.period_year}-${String(c.period_month).padStart(2, "0")}.pdf`;
+              const isBusy = downloadingId === c.id || downloadingId === draft?.id;
+              return (
+                <Card key={c.id} className="hover:border-primary/30 transition-colors">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-sm sm:text-base">
+                            {MONTHS[c.period_month - 1]} {c.period_year}
+                          </p>
+                          {hasPdf ? (
+                            <Badge className="text-[10px] h-5 bg-primary/15 text-primary hover:bg-primary/15">
+                              <CheckCircle2 size={11} className="mr-1" /> Lista
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px] h-5">
+                              Borrador
+                            </Badge>
+                          )}
+                          <PaymentBadge status={draft?.payment_status} />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Impuesto</p>
+                        <p className="font-bold text-base sm:text-lg text-primary">{fmt(c.estimated_tax)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Ingresos {fmt(c.total_income)}</span>
+                      <span>Gastos {fmt(c.total_expenses)}</span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 min-w-[120px] h-10"
+                        onClick={() =>
+                          hasPdf ? handleDownloadExisting(draft, fileName) : handleQuickPdf(c.id, fileName)
+                        }
+                        disabled={isBusy || generatePdf.isPending}
+                      >
+                        {isBusy ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <>
+                            <Download size={14} /> {hasPdf ? "Descargar" : "Generar PDF"}
+                          </>
+                        )}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-10" onClick={() => startEditFlow(c)}>
+                        <Pencil size={14} /> Editar
+                      </Button>
+                      {draft && draft.payment_status !== "paid" && Number(c.estimated_tax) >= 1 && (
+                        <Button
+                          size="sm"
+                          className="h-10 bg-amber-500 hover:bg-amber-600 text-white"
+                          onClick={() => setPayingDraftId(draft.id)}
+                        >
+                          <CreditCard size={14} /> Pagar ISR
+                        </Button>
+                      )}
+                      {draft?.payment_status === "paid" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-10"
+                          onClick={() => handleDownloadCfdi(draft)}
+                          disabled={cfdiBusyId === draft.id}
+                        >
+                          {cfdiBusyId === draft.id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <>
+                              <ScrollText size={14} /> Comprobante
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderFlow = () => (
+    <div className="space-y-5 pb-36 md:pb-6">
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setMode("home");
+            setCurrentCalc(null);
+          }}
+        >
+          <ArrowLeft size={16} /> Volver
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-5 space-y-4">
+          <h3 className="font-display font-semibold">¿Qué mes vas a declarar?</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Mes</Label>
+              <Select
+                value={String(month)}
+                onValueChange={(v) => {
+                  setMonth(Number(v));
+                  setCurrentCalc(null);
+                }}
+                disabled={!!currentCalc}
+              >
+                <SelectTrigger className="h-12">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((m, i) => (
+                    <SelectItem key={i + 1} value={String(i + 1)}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Año</Label>
+              <Select
+                value={String(year)}
+                onValueChange={(v) => {
+                  setYear(Number(v));
+                  setCurrentCalc(null);
+                }}
+                disabled={!!currentCalc}
+              >
+                <SelectTrigger className="h-12">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {!currentCalc && (
+            <Button size="lg" className="w-full h-12" onClick={handleCalculate} disabled={calculate.isPending}>
+              {calculate.isPending ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" /> Calculando…
+                </>
+              ) : (
+                <>
+                  <Calculator size={18} /> Calcular
+                </>
+              )}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {currentCalc && (
+        <Card>
+          <CardContent className="p-5 space-y-4">
+            <h3 className="font-display font-semibold">Revisa tus números</h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-xl border bg-card p-4 space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Wallet size={14} />
+                  <span className="text-xs font-medium uppercase tracking-wide">Ingresos</span>
+                </div>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={editIncome}
+                  onChange={(e) => {
+                    setEditIncome(e.target.value);
+                    setDirty(true);
+                  }}
+                  className="h-12 text-lg font-bold border-0 px-0 focus-visible:ring-0 shadow-none bg-transparent outline-none"
+                />
+              </div>
+              <div className="rounded-xl border bg-card p-4 space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <TrendingDown size={14} />
+                  <span className="text-xs font-medium uppercase tracking-wide">Gastos</span>
+                </div>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={editExpenses}
+                  onChange={(e) => {
+                    setEditExpenses(e.target.value);
+                    setDirty(true);
+                  }}
+                  className="h-12 text-lg font-bold border-0 px-0 focus-visible:ring-0 shadow-none bg-transparent outline-none"
+                />
+              </div>
+              <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-4 space-y-2 sm:col-span-2">
+                <div className="flex items-center gap-2 text-primary">
+                  <Sparkles size={14} />
+                  <span className="text-xs font-medium uppercase tracking-wide">Pagarías de impuesto</span>
+                </div>
+                <p className="text-3xl font-bold text-primary">
+                  {fmt(dirty ? (livePreview?.isr ?? 0) : currentCalc.estimated_tax)}
+                </p>
+                {dirty && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Estimación en vivo. Pulsa "Guardar cambios" para confirmarla.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full h-14 text-base"
+              onClick={handleSaveChanges}
+              disabled={savingAll || calculate.isPending || saveDraft.isPending || generatePdf.isPending}
+            >
+              {savingAll ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" /> Guardando…
+                </>
+              ) : (
+                <>
+                  <Save size={18} /> Guardar cambios
+                </>
+              )}
+            </Button>
+
+            {currentDraft?.status === "exported_pdf" && !dirty && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full h-12"
+                onClick={() =>
+                  handleDownloadExisting(
+                    currentDraft,
+                    `declaracion-${currentCalc.period_year}-${String(currentCalc.period_month).padStart(2, "0")}.pdf`,
+                  )
+                }
+                disabled={downloadingId === currentDraft.id}
+              >
+                {downloadingId === currentDraft.id ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <>
+                    <Download size={16} /> Descargar PDF actual
+                  </>
+                )}
+              </Button>
+            )}
+
+            <p className="text-[11px] text-muted-foreground text-center">
+              Documento informativo — valida en el SAT antes de presentar.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold font-display">Ingresos y Gastos</h1>
-
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={(open) => {
-              setDialogOpen(open);
-              if (!open) {
-                setNewAmount("");
-                setNewCategory("");
-                setNewDescription("");
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button size="lg">
-                <Plus size={18} /> Registrar
-              </Button>
-            </DialogTrigger>
-
-            <DialogContent className="max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="font-display">Nuevo registro</DialogTitle>
-              </DialogHeader>
-
-              {/* Wrapper with chart as absolute background */}
-              <div className="relative rounded-xl overflow-hidden bg-white p-4">
-                <BgBarChart type={newType} />
-
-                <div className="relative z-10 space-y-4">
-                  {/* Colored tabs */}
-                  <Tabs
-                    value={newType}
-                    onValueChange={(v) => {
-                      setNewType(v as "income" | "expense");
-                      setNewCategory("");
-                    }}
-                  >
-                    <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 h-auto">
-                      <TabsTrigger
-                        value="income"
-                        className="h-11 rounded-lg font-semibold bg-green-100 text-black border-2 border-green-200 data-[state=active]:bg-green-200 data-[state=active]:border-green-500 data-[state=active]:shadow-none data-[state=active]:text-black"
-                      >
-                        Ingreso
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="expense"
-                        className="h-11 rounded-lg font-semibold bg-red-100 text-black border-2 border-red-200 data-[state=active]:bg-red-200 data-[state=active]:border-red-500 data-[state=active]:shadow-none data-[state=active]:text-black"
-                      >
-                        Gasto
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-
-                  {/* Form */}
-                  <div className="space-y-2">
-                    <Label>Monto</Label>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={newAmount}
-                      onChange={(e) => setNewAmount(e.target.value)}
-                      className="h-12 text-lg"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Categoría</Label>
-                    <Select value={newCategory} onValueChange={setNewCategory}>
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Selecciona" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(newType === "income" ? incomeCategories : expenseCategories).map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Descripción (opcional)</Label>
-                    <Input
-                      placeholder="Ej: Venta de mercancía"
-                      value={newDescription}
-                      onChange={(e) => setNewDescription(e.target.value)}
-                      className="h-12"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Fecha</Label>
-                    <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="h-12" />
-                  </div>
-                  <Button size="lg" className="w-full" onClick={handleAdd} disabled={saving}>
-                    {saving ? "Guardando..." : "Guardar"}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+      <PaymentTestModeBanner />
+      <div className="max-w-3xl mx-auto px-1 sm:px-0">
+        {/* Botón "Regresar al inicio" añadido */}
+        <div className="mb-6">
+          <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={() => navigate("/")}>
+            <Home size={16} />
+            Regresar al inicio
+          </Button>
         </div>
 
-        {/* RESICO annual income limit */}
-        <Card
-          className={`border ${
-            resicoExceeded ? "border-red-300" : resicoWarning ? "border-yellow-300" : "border-green-200"
-          }`}
-        >
-          <CardContent className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {(resicoWarning || resicoExceeded) && (
-                  <AlertTriangle size={15} className={resicoExceeded ? "text-red-500" : "text-yellow-500"} />
-                )}
-                <div>
-                  <p className="text-sm font-semibold">Límite de ingresos RESICO — {currentYear}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Para permanecer en RESICO tus ingresos anuales no deben superar $3,500,000
-                  </p>
-                </div>
-              </div>
-              <span
-                className={`text-sm font-bold shrink-0 ml-4 ${
-                  resicoExceeded ? "text-red-600" : resicoWarning ? "text-yellow-600" : "text-green-700"
-                }`}
-              >
-                {resicoPercent.toFixed(1)}%
-              </span>
-            </div>
-            <Progress value={resicoPercent} className="h-2.5" />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{loadingData ? "Calculando..." : `${fmt(annualIncome)} acumulado este año`}</span>
-              <span className={resicoExceeded ? "text-red-600 font-semibold" : ""}>
-                {resicoExceeded
-                  ? "¡Límite superado!"
-                  : loadingData
-                    ? ""
-                    : `Disponible: ${fmt(RESICO_LIMIT - annualIncome)}`}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Totals */}
-        <div className="grid grid-cols-2 gap-3">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-100 text-green-700">
-                <TrendingUp size={18} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Ingresos</p>
-                <p className="text-lg font-bold font-display">{loadingData ? "..." : fmt(totalIncome)}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-100 text-red-700">
-                <TrendingDown size={18} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Gastos</p>
-                <p className="text-lg font-bold font-display">{loadingData ? "..." : fmt(totalExpenses)}</p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold font-display">Declaraciones</h1>
         </div>
-
-        {/* List */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display">Movimientos recientes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {loadingData ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Cargando...</p>
-            ) : transactions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Sin movimientos registrados</p>
-            ) : (
-              transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`p-2 rounded-lg ${tx.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
-                    >
-                      {tx.type === "income" ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{tx.description || tx.category}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {tx.category} · {new Date(tx.date + "T00:00:00").toLocaleDateString("es-MX")}
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`font-bold text-sm ${tx.type === "income" ? "text-green-700" : "text-red-600"}`}>
-                    {tx.type === "income" ? "+" : "-"}
-                    {fmt(tx.amount)}
-                  </span>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        {mode === "home" ? renderHome() : renderFlow()}
       </div>
+
+      <Dialog open={!!payingDraftId} onOpenChange={(o) => !o && setPayingDraftId(null)}>
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle>Pagar ISR</DialogTitle>
+          </DialogHeader>
+          {payingDraftId && <DeclarationCheckout declarationId={payingDraftId} />}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
 
-export default IncomeExpenses;
+export default Declarations;

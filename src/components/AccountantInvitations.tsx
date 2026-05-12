@@ -1,39 +1,48 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { usePendingInvitations } from '@/hooks/useAccountantClients';
-import { Check, X, UserCheck, Calculator, Shield, Clock } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { usePendingInvitations } from "@/hooks/useAccountantClients";
+import { Check, X, UserCheck, Calculator, Shield, Clock } from "lucide-react";
+import { toast } from "sonner";
 
 const AccountantInvitations: React.FC = () => {
   const { data, isLoading, respond } = usePendingInvitations();
-  const [responding, setResponding] = useState<Record<string, 'accepting' | 'rejecting'>>({});
+  const [responding, setResponding] = useState<Record<string, "accepting" | "rejecting">>({});
 
   if (isLoading) return null;
 
-  const pending  = (data ?? []).filter((i) => i.status === 'pending');
-  const accepted = (data ?? []).filter((i) => i.status === 'active');
-  const rejected = (data ?? []).filter((i) => i.status === 'rejected');
+  const pending = (data ?? []).filter((i) => i.status === "pending");
+  const accepted = (data ?? []).filter((i) => i.status === "active");
+  const rejected = (data ?? []).filter((i) => i.status === "rejected");
 
   // Nothing to show at all
   if (data == null || data.length === 0) return null;
 
   const handleRespond = async (id: string, accept: boolean) => {
-    setResponding((prev) => ({ ...prev, [id]: accept ? 'accepting' : 'rejecting' }));
+    setResponding((prev) => ({ ...prev, [id]: accept ? "accepting" : "rejecting" }));
     try {
       await respond.mutateAsync({ id, accept });
-      toast.success(accept ? '¡Vínculo aceptado! El contador ya puede ver tu información.' : 'Invitación rechazada.');
+      toast.success(accept ? "¡Vínculo aceptado! El contador ya puede ver tu información." : "Invitación rechazada.");
     } catch {
-      toast.error('Ocurrió un error. Intenta de nuevo.');
+      toast.error("Ocurrió un error. Intenta de nuevo.");
     } finally {
-      setResponding((prev) => { const next = { ...prev }; delete next[id]; return next; });
+      setResponding((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     }
   };
 
   // Avatar initials helper
   const initials = (name: string) =>
-    name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+    name
+      .split(" ")
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase();
 
   return (
     <div className="space-y-3">
@@ -45,25 +54,20 @@ const AccountantInvitations: React.FC = () => {
               <div className="p-1.5 rounded-lg bg-primary/10">
                 <UserCheck size={16} className="text-primary" />
               </div>
-              <CardTitle className="text-base">
-                Solicitudes de contador
-              </CardTitle>
+              <CardTitle className="text-base">Solicitudes de contador</CardTitle>
               <Badge variant="default" className="ml-auto text-xs">
-                {pending.length} nueva{pending.length !== 1 ? 's' : ''}
+                {pending.length} nueva{pending.length !== 1 ? "s" : ""}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
             <p className="text-xs text-muted-foreground -mt-1">
-              Un contador solicita acceso de <strong>solo lectura</strong> a tu información fiscal.
-              Tú decides si aceptas o no.
+              Un contador solicita acceso de <strong>solo lectura</strong> a tu información fiscal. Tú decides si
+              aceptas o no.
             </p>
 
             {pending.map((inv: any) => (
-              <div
-                key={inv.id}
-                className="rounded-xl border border-border bg-card p-4 space-y-3 transition-all"
-              >
+              <div key={inv.id} className="rounded-xl border border-border bg-card p-4 space-y-3 transition-all">
                 {/* Accountant info */}
                 <div className="flex items-start gap-3">
                   <div className="shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
@@ -85,8 +89,10 @@ const AccountantInvitations: React.FC = () => {
                     )}
                     <p className="text-[11px] text-muted-foreground/60 mt-1 flex items-center gap-1">
                       <Clock size={10} />
-                      {new Date(inv.created_at).toLocaleDateString('es-MX', {
-                        day: 'numeric', month: 'long', year: 'numeric',
+                      {new Date(inv.created_at).toLocaleDateString("es-MX", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
                       })}
                     </p>
                   </div>
@@ -110,10 +116,14 @@ const AccountantInvitations: React.FC = () => {
                     disabled={!!responding[inv.id]}
                     onClick={() => handleRespond(inv.id, false)}
                   >
-                    {responding[inv.id] === 'rejecting' ? (
-                      <span className="flex items-center gap-1.5"><span className="animate-spin">⟳</span> Rechazando…</span>
+                    {responding[inv.id] === "rejecting" ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="animate-spin">⟳</span> Rechazando…
+                      </span>
                     ) : (
-                      <span className="flex items-center gap-1.5"><X size={14} /> Rechazar</span>
+                      <span className="flex items-center gap-1.5">
+                        <X size={14} /> Rechazar
+                      </span>
                     )}
                   </Button>
                   <Button
@@ -122,10 +132,14 @@ const AccountantInvitations: React.FC = () => {
                     disabled={!!responding[inv.id]}
                     onClick={() => handleRespond(inv.id, true)}
                   >
-                    {responding[inv.id] === 'accepting' ? (
-                      <span className="flex items-center gap-1.5"><span className="animate-spin">⟳</span> Aceptando…</span>
+                    {responding[inv.id] === "accepting" ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="animate-spin">⟳</span> Aceptando…
+                      </span>
                     ) : (
-                      <span className="flex items-center gap-1.5"><Check size={14} /> Aceptar</span>
+                      <span className="flex items-center gap-1.5">
+                        <Check size={14} /> Aceptar
+                      </span>
                     )}
                   </Button>
                 </div>
@@ -149,11 +163,12 @@ const AccountantInvitations: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <p className="font-medium text-sm leading-tight">{inv.accountant_name}</p>
-                  {inv.specialization && (
-                    <p className="text-xs text-muted-foreground">{inv.specialization}</p>
-                  )}
+                  {inv.specialization && <p className="text-xs text-muted-foreground">{inv.specialization}</p>}
                 </div>
-                <Badge variant="outline" className="ml-auto text-[10px] border-emerald-500/30 text-emerald-600 shrink-0">
+                <Badge
+                  variant="outline"
+                  className="ml-auto text-[10px] border-emerald-500/30 text-emerald-600 shrink-0"
+                >
                   Activo
                 </Badge>
               </div>
@@ -165,7 +180,7 @@ const AccountantInvitations: React.FC = () => {
       {/* ── Rejected (collapsed, just count) ── */}
       {rejected.length > 0 && pending.length === 0 && accepted.length === 0 && (
         <div className="text-xs text-muted-foreground text-center py-1">
-          {rejected.length} solicitud{rejected.length !== 1 ? 'es' : ''} rechazada{rejected.length !== 1 ? 's' : ''}
+          {rejected.length} solicitud{rejected.length !== 1 ? "es" : ""} rechazada{rejected.length !== 1 ? "s" : ""}
         </div>
       )}
     </div>

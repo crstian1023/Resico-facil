@@ -1,29 +1,41 @@
-import React from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUserRole } from '@/hooks/useUserRole';
+import React from "react";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import {
-  LayoutDashboard, DollarSign, FolderOpen, FileText,
-  GraduationCap, CreditCard, Settings, LogOut, Menu, X,
-  HandCoins, ArrowLeft, Users, UserPlus, Calculator,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+  LayoutDashboard,
+  DollarSign,
+  FolderOpen,
+  FileText,
+  GraduationCap,
+  CreditCard,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  HandCoins,
+  ArrowLeft,
+  Users,
+  UserPlus,
+  Calculator,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const taxpayerNav = [
-  { to: '/dashboard',       label: 'Inicio',          icon: LayoutDashboard },
-  { to: '/income-expenses', label: 'Ingresos y Gastos',icon: DollarSign },
-  { to: '/documents',       label: 'Expediente',       icon: FolderOpen },
-  { to: '/declarations',    label: 'Declaraciones',    icon: FileText },
-  { to: '/payments',        label: 'Pagos',            icon: CreditCard },
-  { to: '/support-credits', label: 'Apoyos',           icon: HandCoins },
-  { to: '/tutorials',       label: 'Aprende',          icon: GraduationCap },
-  { to: '/settings',        label: 'Ajustes',          icon: Settings },
+  { to: "/dashboard", label: "Inicio", icon: LayoutDashboard },
+  { to: "/income-expenses", label: "Ingresos y Gastos", icon: DollarSign },
+  { to: "/documents", label: "Expediente", icon: FolderOpen },
+  { to: "/declarations", label: "Declaraciones", icon: FileText },
+  { to: "/payments", label: "Pagos", icon: CreditCard },
+  { to: "/support-credits", label: "Apoyos", icon: HandCoins },
+  { to: "/tutorials", label: "Aprende", icon: GraduationCap },
+  { to: "/settings", label: "Ajustes", icon: Settings },
 ];
 
 const accountantNav = [
-  { to: '/contador',  label: 'Mis Clientes', icon: Users },
-  { to: '/settings',  label: 'Ajustes',      icon: Settings },
+  { to: "/contador", label: "Mis Clientes", icon: Users },
+  { to: "/settings", label: "Ajustes", icon: Settings },
 ];
 
 const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -33,17 +45,17 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { data: role } = useUserRole();
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
-  const isAccountant = role === 'accountant' || role === 'admin';
+  const isAccountant = role === "accountant" || role === "admin";
   const navItems = isAccountant ? accountantNav : taxpayerNav;
-  const homeRoute = isAccountant ? '/contador' : '/dashboard';
+  const homeRoute = isAccountant ? "/contador" : "/dashboard";
   const isHome = location.pathname === homeRoute;
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/login');
+    navigate("/login");
   };
 
-  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario';
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuario";
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -66,12 +78,14 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) => cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-sidebar-accent text-sidebar-primary'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-              )}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-primary"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                )
+              }
             >
               <Icon size={18} />
               {label}
@@ -126,10 +140,12 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   key={to}
                   to={to}
                   onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) => cn(
-                    'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
-                    isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted'
-                  )}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors",
+                      isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted",
+                    )
+                  }
                 >
                   <Icon size={18} /> {label}
                 </NavLink>
@@ -167,13 +183,15 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) => cn(
-                'flex flex-col items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-lg transition-colors',
-                isActive ? 'text-primary' : 'text-muted-foreground'
-              )}
+              className={({ isActive }) =>
+                cn(
+                  "flex flex-col items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-lg transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground",
+                )
+              }
             >
               <Icon size={20} />
-              {label.split(' ')[0]}
+              {label.split(" ")[0]}
             </NavLink>
           ))}
         </nav>
