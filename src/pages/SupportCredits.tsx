@@ -8,36 +8,58 @@ import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  Sparkles, ShieldCheck, TrendingUp, Wallet, FileText, Download,
-  CheckCircle2, Clock, RefreshCw, ArrowRight, Activity,
+  Sparkles,
+  ShieldCheck,
+  TrendingUp,
+  Wallet,
+  FileText,
+  Download,
+  CheckCircle2,
+  Clock,
+  RefreshCw,
+  ArrowRight,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  useLatestScore, useFinancialApplications, useRecomputeScore,
-  useCreateApplication, useApproveApplication, useGenerateApprovalPdf,
-  computePayment, downloadApprovalPdf,
+  useLatestScore,
+  useFinancialApplications,
+  useRecomputeScore,
+  useCreateApplication,
+  useApproveApplication,
+  useGenerateApprovalPdf,
+  computePayment,
+  downloadApprovalPdf,
   type FinancialApplication,
 } from "@/hooks/useFinancialModule";
 
-const fmt = (n: number) =>
-  `$${Math.round(Number(n ?? 0)).toLocaleString("es-MX")} MXN`;
+const fmt = (n: number) => `$${Math.round(Number(n ?? 0)).toLocaleString("es-MX")} MXN`;
 
 const riskMeta = (level?: string) => {
-  if (level === "low") return { label: "Riesgo bajo", cls: "bg-emerald-100 text-emerald-800 border-emerald-200", rate: 0.029 };
-  if (level === "medium") return { label: "Riesgo medio", cls: "bg-amber-100 text-amber-800 border-amber-200", rate: 0.032 };
+  if (level === "low")
+    return { label: "Riesgo bajo", cls: "bg-emerald-100 text-emerald-800 border-emerald-200", rate: 0.029 };
+  if (level === "medium")
+    return { label: "Riesgo medio", cls: "bg-amber-100 text-amber-800 border-amber-200", rate: 0.032 };
   if (level === "high") return { label: "Riesgo alto", cls: "bg-rose-100 text-rose-800 border-rose-200", rate: 0.045 };
   return { label: "Sin evaluar", cls: "bg-muted text-muted-foreground", rate: 0.032 };
 };
 
 const statusMeta = (s: string) => {
   switch (s) {
-    case "in_review": return { label: "En revisión", cls: "bg-sky-100 text-sky-800" };
-    case "analyzing": return { label: "En análisis", cls: "bg-indigo-100 text-indigo-800" };
-    case "preapproved": return { label: "Preaprobado", cls: "bg-emerald-100 text-emerald-800" };
-    case "approved": return { label: "Aprobado", cls: "bg-emerald-100 text-emerald-800" };
-    case "pending_release": return { label: "Pendiente de liberación", cls: "bg-amber-100 text-amber-900" };
-    case "rejected": return { label: "No aprobado", cls: "bg-rose-100 text-rose-800" };
-    default: return { label: s, cls: "bg-muted text-muted-foreground" };
+    case "in_review":
+      return { label: "En revisión", cls: "bg-sky-100 text-sky-800" };
+    case "analyzing":
+      return { label: "En análisis", cls: "bg-indigo-100 text-indigo-800" };
+    case "preapproved":
+      return { label: "Preaprobado", cls: "bg-emerald-100 text-emerald-800" };
+    case "approved":
+      return { label: "Aprobado", cls: "bg-emerald-100 text-emerald-800" };
+    case "pending_release":
+      return { label: "Pendiente de liberación", cls: "bg-amber-100 text-amber-900" };
+    case "rejected":
+      return { label: "No aprobado", cls: "bg-rose-100 text-rose-800" };
+    default:
+      return { label: s, cls: "bg-muted text-muted-foreground" };
   }
 };
 
@@ -59,8 +81,14 @@ const ScoreRing: React.FC<{ score: number }> = ({ score }) => {
       <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
         <circle cx="70" cy="70" r={r} stroke="hsl(var(--muted))" strokeWidth="10" fill="none" />
         <circle
-          cx="70" cy="70" r={r} stroke="hsl(var(--primary))" strokeWidth="10" fill="none"
-          strokeDasharray={`${dash} ${c}`} strokeLinecap="round"
+          cx="70"
+          cy="70"
+          r={r}
+          stroke="hsl(var(--primary))"
+          strokeWidth="10"
+          fill="none"
+          strokeDasharray={`${dash} ${c}`}
+          strokeLinecap="round"
           style={{ transition: "stroke-dasharray 700ms ease" }}
         />
       </svg>
@@ -74,9 +102,15 @@ const ScoreRing: React.FC<{ score: number }> = ({ score }) => {
 
 const TimelineRow: React.FC<{ done: boolean; label: string; pending?: boolean }> = ({ done, label, pending }) => (
   <div className="flex items-center gap-3">
-    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-      done ? "bg-emerald-100 text-emerald-700" : pending ? "bg-amber-100 text-amber-700" : "bg-muted text-muted-foreground"
-    }`}>
+    <div
+      className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+        done
+          ? "bg-emerald-100 text-emerald-700"
+          : pending
+            ? "bg-amber-100 text-amber-700"
+            : "bg-muted text-muted-foreground"
+      }`}
+    >
       {done ? <CheckCircle2 size={16} /> : <Clock size={14} />}
     </div>
     <span className={`text-sm ${done ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
@@ -93,12 +127,16 @@ const SupportCredits: React.FC = () => {
 
   const risk = riskMeta(score?.risk_level);
   const monthlyRate = risk.rate;
-  const cat = risk.rate === 0.029 ? 0.32 : risk.rate === 0.032 ? 0.35 : 0.48;
+
+  // Cálculo de CAT utilizando la fórmula de Tasa Anual Efectiva: (1 + i)^12 - 1
+  const cat = Math.pow(1 + monthlyRate, 12) - 1;
 
   const maxAmount = Math.max(5000, Math.round((score?.estimated_capacity ?? 30000) / 1000) * 1000);
   const [amount, setAmount] = useState<number>(Math.min(80000, maxAmount));
   const [term, setTerm] = useState<number>(18);
-  useEffect(() => { setAmount(Math.min(amount, maxAmount)); /* clamp */ }, [maxAmount]); // eslint-disable-line
+  useEffect(() => {
+    setAmount(Math.min(amount, maxAmount)); /* clamp */
+  }, [maxAmount]); // eslint-disable-line
 
   const sim = useMemo(() => computePayment(amount, term, monthlyRate), [amount, term, monthlyRate]);
 
@@ -193,7 +231,8 @@ const SupportCredits: React.FC = () => {
             </p>
           </div>
           <Button
-            variant="outline" size="sm"
+            variant="outline"
+            size="sm"
             onClick={() => recompute.mutate(undefined, { onSuccess: () => toast.success("Perfil actualizado") })}
             disabled={recompute.isPending}
           >
@@ -234,7 +273,9 @@ const SupportCredits: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <span className={`text-xs px-3 py-1 rounded-full font-medium border bg-white/95 ${risk.cls.replace("bg-", "").replace("border-", "")}`}>
+                    <span
+                      className={`text-xs px-3 py-1 rounded-full font-medium border bg-white/95 ${risk.cls.replace("bg-", "").replace("border-", "")}`}
+                    >
                       <ShieldCheck size={12} className="inline mr-1 -mt-0.5" />
                       {risk.label}
                     </span>
@@ -297,13 +338,7 @@ const SupportCredits: React.FC = () => {
                   <span className="text-muted-foreground">Plazo</span>
                   <span className="font-bold font-display">{term} meses</span>
                 </div>
-                <Slider
-                  value={[term]}
-                  min={6}
-                  max={36}
-                  step={3}
-                  onValueChange={(v) => setTerm(v[0])}
-                />
+                <Slider value={[term]} min={6} max={36} step={3} onValueChange={(v) => setTerm(v[0])} />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>6 meses</span>
                   <span>36 meses</span>
@@ -322,7 +357,10 @@ const SupportCredits: React.FC = () => {
               </div>
               <div className="rounded-xl bg-muted/40 border p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tasa estimada</p>
-                <p className="text-lg font-bold font-display">{(monthlyRate * 100).toFixed(1)}% <span className="text-xs font-normal text-muted-foreground">/ mes</span></p>
+                <p className="text-lg font-bold font-display">
+                  {(monthlyRate * 100).toFixed(1)}%{" "}
+                  <span className="text-xs font-normal text-muted-foreground">/ mes</span>
+                </p>
               </div>
               <div className="rounded-xl bg-muted/40 border p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">CAT estimado</p>
@@ -331,7 +369,8 @@ const SupportCredits: React.FC = () => {
             </div>
 
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Las cifras son estimaciones generadas a partir de tu actividad fiscal y no constituyen una oferta crediticia.
+              Las cifras son estimaciones generadas a partir de tu actividad fiscal y no constituyen una oferta
+              crediticia.
             </p>
 
             <Button size="lg" className="w-full md:w-auto" onClick={startEvaluation} disabled={createApp.isPending}>
@@ -363,16 +402,31 @@ const SupportCredits: React.FC = () => {
                         <p className="text-xs text-muted-foreground">Folio {app.folio}</p>
                         <p className="font-semibold font-display">
                           {fmt(isApproved ? Number(app.approved_amount) : app.requested_amount)}
-                          <span className="text-sm text-muted-foreground font-normal"> · {app.approved_term_months ?? app.term_months} meses</span>
+                          <span className="text-sm text-muted-foreground font-normal">
+                            {" "}
+                            · {app.approved_term_months ?? app.term_months} meses
+                          </span>
                         </p>
                       </div>
                       <Badge className={`${sm.cls} border-0`}>{sm.label}</Badge>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div><span className="text-muted-foreground">Pago mensual</span><br/><strong>{fmt(Number(app.approved_monthly_payment ?? app.estimated_monthly_payment))}</strong></div>
-                      <div><span className="text-muted-foreground">Tasa</span><br/><strong>{(Number(app.monthly_rate) * 100).toFixed(2)}%</strong></div>
-                      <div><span className="text-muted-foreground">Fecha</span><br/><strong>{new Date(app.created_at).toLocaleDateString("es-MX")}</strong></div>
+                      <div>
+                        <span className="text-muted-foreground">Pago mensual</span>
+                        <br />
+                        <strong>{fmt(Number(app.approved_monthly_payment ?? app.estimated_monthly_payment))}</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Tasa</span>
+                        <br />
+                        <strong>{(Number(app.monthly_rate) * 100).toFixed(2)}%</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Fecha</span>
+                        <br />
+                        <strong>{new Date(app.created_at).toLocaleDateString("es-MX")}</strong>
+                      </div>
                     </div>
 
                     {/* Timeline */}
@@ -386,7 +440,12 @@ const SupportCredits: React.FC = () => {
 
                     {isApproved && (
                       <div className="pt-2">
-                        <Button size="sm" variant="outline" onClick={() => handleDownloadPdf(app)} disabled={genPdf.isPending}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadPdf(app)}
+                          disabled={genPdf.isPending}
+                        >
                           <Download size={14} /> {app.pdf_path ? "Descargar carta" : "Generar carta"}
                         </Button>
                       </div>
@@ -406,7 +465,12 @@ const SupportCredits: React.FC = () => {
       </div>
 
       {/* Analysis dialog */}
-      <Dialog open={analysisOpen} onOpenChange={(o) => { if (!createApp.isPending) setAnalysisOpen(o); }}>
+      <Dialog
+        open={analysisOpen}
+        onOpenChange={(o) => {
+          if (!createApp.isPending) setAnalysisOpen(o);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">
@@ -420,10 +484,15 @@ const SupportCredits: React.FC = () => {
               <div className="space-y-2.5">
                 {ANALYSIS_STEPS.map((s, i) => (
                   <div key={s} className="flex items-center gap-3 text-sm">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
-                      i < analysisStep ? "bg-emerald-100 text-emerald-700" :
-                      i === analysisStep ? "bg-emerald-200 text-emerald-800 animate-pulse" : "bg-muted text-muted-foreground"
-                    }`}>
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                        i < analysisStep
+                          ? "bg-emerald-100 text-emerald-700"
+                          : i === analysisStep
+                            ? "bg-emerald-200 text-emerald-800 animate-pulse"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
                       {i < analysisStep ? <CheckCircle2 size={14} /> : <Clock size={12} />}
                     </div>
                     <span className={i <= analysisStep ? "text-foreground" : "text-muted-foreground"}>{s}</span>

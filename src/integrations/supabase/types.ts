@@ -1202,6 +1202,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accountant_invite_by_rfc: { Args: { p_rfc: string }; Returns: Json }
+      accountant_set_edit_permission: {
+        Args: { p_can_edit: boolean; p_link_id: string }
+        Returns: Json
+      }
       get_user_plan_limits: {
         Args: { check_env?: string; user_uuid: string }
         Returns: Json

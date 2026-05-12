@@ -23,14 +23,11 @@ import {
   Send,
   Pencil,
   ShieldCheck,
-  Download,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import AppLayout from "@/components/AppLayout";
-import { useGenerateDeclarationPdf, useRefreshPdfSignedUrl } from "@/hooks/useTaxEngine";
 
 // ── ClientDetail ──────────────────────────────────────────────────────────────
 const ClientDetail: React.FC<{
@@ -41,35 +38,7 @@ const ClientDetail: React.FC<{
 }> = ({ clientId, linkId, canEdit, onBack }) => {
   const { user } = useAuth();
   const [note, setNote] = useState("");
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const { setEditPermission } = useAccountantClients();
-  const generatePdf = useGenerateDeclarationPdf();
-  const refreshSigned = useRefreshPdfSignedUrl();
-
-  const downloadPdf = async (url: string, fileName: string) => {
-    if (!url) return;
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("No se pudo obtener el archivo del servidor");
-
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-
-      setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(blobUrl);
-      }, 100);
-    } catch (error) {
-      console.error("Error en descarga segura:", error);
-      window.open(url, "_blank");
-    }
-  };
 
   const {
     data: summary,
@@ -91,7 +60,7 @@ const ClientDetail: React.FC<{
           .maybeSingle(),
         supabase
           .from("declaration_drafts")
-          .select("id, period_year, period_month, status, pdf_url, pdf_storage_path")
+          .select("id, period_year, period_month, status, pdf_url")
           .eq("user_id", clientId)
           .order("period_year", { ascending: false })
           .order("period_month", { ascending: false })
@@ -127,50 +96,6 @@ const ClientDetail: React.FC<{
     toast.success("Nota guardada");
     setNote("");
     refetch();
-  };
-
-  const handleDownloadDeclaration = async (draft: any) => {
-    try {
-      setDownloadingId(draft.id);
-      let url = draft.pdf_url as string | undefined;
-      
-      // Si hay un pdf_storage_path, obtener URL firmada
-      if (draft.pdf_storage_path) {
-        try {
-          url = await refreshSigned.mutateAsync(draft.pdf_storage_path);
-        } catch {}
-      }
-      
-      // Si no hay URL, generar el PDF
-      if (!url) {
-        // Necesitamos el calculation_id para generar el PDF
-        // Primero obtenemos el cálculo actual del cliente
-        const { data: calc } = await supabase
-          .from("tax_calculations")
-          .select("id")
-          .eq("user_id", clientId)
-          .eq("period_year", draft.period_year)
-          .eq("period_month", draft.period_month)
-          .maybeSingle();
-        
-        if (calc?.id) {
-          const res = await generatePdf.mutateAsync({ calculation_id: calc.id });
-          url = res.pdf_url;
-          toast.success("PDF generado");
-        } else {
-          throw new Error("No se encontró el cálculo fiscal para este periodo");
-        }
-      }
-      
-      if (!url) throw new Error("PDF no disponible");
-      
-      const fileName = `declaracion-${draft.period_year}-${String(draft.period_month).padStart(2, "0")}.pdf`;
-      await downloadPdf(url, fileName);
-    } catch (e: any) {
-      toast.error(e.message ?? "No se pudo descargar el PDF");
-    } finally {
-      setDownloadingId(null);
-    }
   };
 
   if (isLoading)
@@ -288,40 +213,22 @@ const ClientDetail: React.FC<{
         </CardHeader>
         <CardContent className="space-y-2">
           {summary?.drafts.length ? (
-            summary.drafts.map((d: any) => {
-              const isBusy = downloadingId === d.id;
-              return (
-                <div
-                  key={d.id}
-                  className="flex items-center justify-between text-sm p-2.5 rounded-lg border border-border bg-muted/30"
-                >
-                  <div className="flex items-center gap-2">
-                    <FileText size={14} className="text-muted-foreground" />
-                    <span className="font-medium">
-                      {d.period_month}/{d.period_year}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={d.status === "submitted" ? "default" : "secondary"} className="capitalize">
-                      {d.status}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleDownloadDeclaration(d)}
-                      disabled={isBusy || generatePdf.isPending}
-                    >
-                      {isBusy ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Download size={14} />
-                      )}
-                    </Button>
-                  </div>
+            summary.drafts.map((d: any) => (
+              <div
+                key={d.id}
+                className="flex items-center justify-between text-sm p-2.5 rounded-lg border border-border bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <FileText size={14} className="text-muted-foreground" />
+                  <span className="font-medium">
+                    {d.period_month}/{d.period_year}
+                  </span>
                 </div>
-              );
-            })
+                <Badge variant={d.status === "submitted" ? "default" : "secondary"} className="capitalize">
+                  {d.status}
+                </Badge>
+              </div>
+            ))
           ) : (
             <p className="text-sm text-muted-foreground">Sin declaraciones.</p>
           )}

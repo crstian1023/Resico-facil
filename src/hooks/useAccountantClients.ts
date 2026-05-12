@@ -36,12 +36,20 @@ export const useAccountantClients = () => {
         supabase.from("taxpayer_profiles").select("user_id, rfc").in("user_id", ids),
       ]);
 
-      return (links ?? []).map((l) => ({
-        ...l,
-        client_name: profs?.find((p) => p.user_id === l.client_id)?.full_name ?? null,
-        client_rfc: tps?.find((t) => t.user_id === l.client_id)?.rfc ?? null,
-        canEdit: l.permissions?.edit === true,
-      }));
+      return (links ?? []).map((l) => {
+        const perms = (l.permissions ?? {}) as { read?: boolean; edit?: boolean; documents?: boolean };
+        return {
+          ...l,
+          permissions: {
+            read: perms.read ?? true,
+            edit: perms.edit ?? false,
+            documents: perms.documents ?? true,
+          },
+          client_name: profs?.find((p) => p.user_id === l.client_id)?.full_name ?? null,
+          client_rfc: tps?.find((t) => t.user_id === l.client_id)?.rfc ?? null,
+          canEdit: perms.edit === true,
+        };
+      });
     },
   });
 
@@ -55,7 +63,7 @@ export const useAccountantClients = () => {
       });
 
       if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
+      if (data && typeof data === "object" && "error" in data) throw new Error((data as any).error);
 
       return data;
     },
@@ -69,7 +77,7 @@ export const useAccountantClients = () => {
         p_can_edit: canEdit,
       });
       if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
+      if (data && typeof data === "object" && "error" in data) throw new Error((data as any).error);
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["accountant_clients", user?.id] }),
