@@ -119,8 +119,13 @@ const Register = () => {
     }
 
     setLoading(false);
-    toast.success("¡Cuenta creada! Revisa tu correo para confirmar.");
-    navigate("/login");
+    if (role === "accountant") {
+      toast.success("¡Cuenta creada! Bienvenido al panel de contadores.");
+      navigate("/contador");
+    } else {
+      toast.success("¡Cuenta creada! Completa tu perfil fiscal para empezar.");
+      navigate("/settings", { state: { fromRegister: true } });
+    }
   };
 
   const FieldError = ({ name }: { name: string }) =>

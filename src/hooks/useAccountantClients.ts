@@ -7,9 +7,10 @@ export interface AccountantClientRow {
   client_id: string;
   status: string;
   created_at: string;
-  permissions: any;
+  permissions: { read: boolean; edit: boolean; documents: boolean } | null;
   client_name?: string | null;
   client_rfc?: string | null;
+  canEdit?: boolean;
 }
 
 export const useAccountantClients = () => {
@@ -39,6 +40,7 @@ export const useAccountantClients = () => {
         ...l,
         client_name: profs?.find((p) => p.user_id === l.client_id)?.full_name ?? null,
         client_rfc: tps?.find((t) => t.user_id === l.client_id)?.rfc ?? null,
+        canEdit: l.permissions?.edit === true,
       }));
     },
   });
@@ -47,35 +49,33 @@ export const useAccountantClients = () => {
     mutationFn: async (rfc: string) => {
       if (!user) throw new Error('No user');
       const cleanRfc = rfc.trim().toUpperCase();
-      const { data: tp, error: tpErr } = await supabase
-        .from('taxpayer_profiles')
-        .select('user_id')
-        .eq('rfc', cleanRfc)
-        .maybeSingle();
-      if (tpErr) throw tpErr;
-      if (!tp) throw new Error('No se encontró un contribuyente con ese RFC.');
 
-      const { error } = await supabase.from('accountant_client_links').insert({
-        accountant_id: user.id,
-        client_id: tp.user_id,
-        status: 'pending',
+      const { data, error } = await supabase.rpc('accountant_invite_by_rfc', {
+        p_rfc: cleanRfc,
       });
-      if (error) {
-        if (error.code === '23505') throw new Error('Ya existe una invitación para este cliente.');
-        throw error;
-      }
 
-      await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        action: 'accountant.invite',
-        table_name: 'accountant_client_links',
-        new_data: { client_id: tp.user_id, rfc: cleanRfc } as any,
-      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['accountant_clients', user?.id] }),
   });
 
-  return { ...list, inviteByRfc };
+  const setEditPermission = useMutation({
+    mutationFn: async ({ linkId, canEdit }: { linkId: string; canEdit: boolean }) => {
+      const { data, error } = await supabase.rpc('accountant_set_edit_permission', {
+        p_link_id: linkId,
+        p_can_edit: canEdit,
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['accountant_clients', user?.id] }),
+  });
+
+  return { ...list, inviteByRfc, setEditPermission };
 };
 
 export const usePendingInvitations = () => {
@@ -96,14 +96,16 @@ export const usePendingInvitations = () => {
       const ids = (links ?? []).map((l) => l.accountant_id);
       if (ids.length === 0) return [];
 
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', ids);
+      const [{ data: profs }, { data: accProfs }] = await Promise.all([
+        supabase.from('profiles').select('user_id, full_name').in('user_id', ids),
+        supabase.from('accountant_profiles').select('user_id, specialization, license_number').in('user_id', ids),
+      ]);
 
       return (links ?? []).map((l) => ({
         ...l,
         accountant_name: profs?.find((p) => p.user_id === l.accountant_id)?.full_name ?? 'Contador',
+        specialization: accProfs?.find((p) => p.user_id === l.accountant_id)?.specialization ?? null,
+        license_number: accProfs?.find((p) => p.user_id === l.accountant_id)?.license_number ?? null,
       }));
     },
   });

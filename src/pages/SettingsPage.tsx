@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import AppLayout from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { User, Shield, Loader2 } from 'lucide-react';
+import { User, Shield, Loader2, Sparkles } from 'lucide-react';
 import { useTaxpayerProfile } from '@/hooks/useTaxpayerProfile';
 import { useProfile } from '@/hooks/useProfile';
 import { z } from 'zod';
@@ -20,6 +21,8 @@ const fiscalSchema = z.object({
 });
 
 const SettingsPage = () => {
+  const location = useLocation();
+  const isNewUser = (location.state as any)?.fromRegister === true;
   const { user } = useAuth();
   const { data: profile, isLoading: profileLoading, update: updateProfile } = useProfile();
   const { data: taxpayer, isLoading: taxLoading, upsert: upsertTaxpayer } = useTaxpayerProfile();
@@ -71,6 +74,25 @@ const SettingsPage = () => {
   return (
     <AppLayout>
       <div className="max-w-2xl mx-auto space-y-6">
+
+        {/* Welcome banner – only shown right after registration */}
+        {isNewUser && (
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/30">
+            <CardContent className="p-4 flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                <Sparkles size={20} />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">¡Bienvenido a Resico Fácil!</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Para sacarle el máximo provecho a la plataforma, completa tu perfil fiscal.
+                  Solo te toma un minuto.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <h1 className="text-2xl font-bold font-display">Ajustes</h1>
 
         <Card>
